@@ -1,6 +1,5 @@
 # shadowgate_api/main.py
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from shadowgate_api.db import Base, engine
 from shadowgate_api.routers import users, admin

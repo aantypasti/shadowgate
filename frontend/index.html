@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shadowgate Bank — Login / Register</title>
+  <style>
+    :root{
+      --bg:#0f1115; --panel:#14171d; --text:#e5e7eb; --muted:#9ca3af;
+      --line:#262b33; --btn:#d1d5db; --btn-2:#f3f4f6; --ink:#0b0d12; --error:#ef4444;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    body{background:var(--bg);color:var(--text)}
+    .wrap{min-height:100%;display:grid;place-items:center;padding:24px}
+    .container{width:100%;max-width:760px}
+
+    /* Header */
+    .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .brand{display:flex;align-items:center;gap:18px;text-decoration:none;color:var(--text)}
+    .logo-img{height:90px;width:auto;display:block;filter:grayscale(100%) brightness(0.9);transition:.2s}
+    .logo-img:hover{filter:grayscale(0%) brightness(1)}
+    .title{font-size:28px;font-weight:800;color:var(--text);letter-spacing:-0.5px}
+    .home{border:1px solid var(--line);background:#111419;color:var(--text);padding:8px 14px;border-radius:10px;text-decoration:none;font-weight:600;transition:.15s}
+    .home:hover{background:#151a21}
+
+    /* Card */
+    .card{background:linear-gradient(180deg,var(--panel),#11151a);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+    .tabs{display:flex;gap:8px;padding:10px}
+    .tabs button{flex:1;padding:10px 14px;border-radius:10px;border:0;font-weight:700;cursor:pointer;transition:.15s}
+    .tabs button.active{background:var(--btn);color:var(--ink)}
+    .tabs button:not(.active){background:#0f1318;color:#bfc5cd;border:1px solid var(--line)}
+    .tabs button.active:hover{background:var(--btn-2)}
+    .divider{height:1px;background:var(--line)}
+
+    /* Form */
+    form{padding:18px;display:grid;gap:14px}
+    .field{display:grid;gap:6px}
+    .label{font-size:12px;color:#d4d7dd}
+    .input,.btn-eye{background:#0f1318;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px}
+    .input::placeholder{color:#6b7280}
+    .row{position:relative}
+    .btn-eye{position:absolute;right:6px;top:6px;padding:8px 10px;cursor:pointer;background:#10151b}
+    .note{margin-top:-4px;font-size:12px;color:#aab0b8}
+    .remember{display:flex;align-items:center;gap:8px;font-size:12px;color:#aab0b8;margin-top:4px}
+    .submit{margin-top:6px;background:var(--btn);border:0;color:var(--ink);font-weight:800;padding:10px 14px;border-radius:12px;cursor:pointer}
+    .submit:hover{background:var(--btn-2)}
+    .submit:disabled{opacity:.55;cursor:not-allowed}
+    .foot{font-size:12px;color:#9aa1a9}
+    .link{color:#e5e7eb;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+    .err{color:var(--error);font-size:12px;display:none}.err.show{display:block}
+
+    @media (max-width:420px){.container{max-width:96vw}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="container">
+      <!-- Header with clickable logo + Home -->
+      <div class="header">
+        <a class="brand" href="../index.html" title="Back to Home">
+          <img class="logo-img" src="../assets/Shadowgate_Logo.png" alt="Shadowgate Bank Logo" />
+          <h1 class="title">Shadowgate Bank</h1>
+        </a>
+        <a class="home" href="../index.html">Home</a>
+      </div>
+
+      <div class="card">
+        <div class="tabs">
+          <button id="tab-login" class="active" type="button">Login</button>
+          <button id="tab-register" type="button">Register</button>
+        </div>
+        <div class="divider"></div>
+
+        <form id="form">
+          <!-- REGISTER-ONLY -->
+          <div id="reg-fields" style="display:none;">
+            <div class="field">
+              <label class="label" for="ingame">In-game Username</label>
+              <input class="input" id="ingame" placeholder="SilentReaper" />
+            </div>
+            <div class="field">
+              <label class="label" for="company">Company Code</label>
+              <input class="input" id="company" placeholder="RPI / FIOC / etc." />
+            </div>
+            <div class="field">
+              <label class="label" for="fio">FIO ApiKey (optional)</label>
+              <input class="input" id="fio" placeholder="paste your API key" />
+            </div>
+          </div>
+
+          <!-- SHARED -->
+          <div class="field">
+            <label class="label" for="user">Username</label>
+            <input class="input" id="user" placeholder="your-handle" autocomplete="username" />
+          </div>
+
+          <div class="field">
+            <label class="label" for="pw">Password</label>
+            <div class="row">
+              <input class="input" id="pw" type="password" placeholder="••••••••" autocomplete="current-password" />
+              <button class="btn-eye" id="togglePw" type="button">Show</button>
+            </div>
+          </div>
+
+          <div id="note" class="note" style="display:none;">
+            Note: Password is lightly protected, do not reuse existing passwords.
+          </div>
+
+          <!-- Remember me -->
+          <label class="remember">
+            <input id="remember" type="checkbox" style="accent-color:#d1d5db;width:14px;height:14px;" />
+            Remember me on this device
+          </label>
+
+          <div id="err" class="err">Please fill the required fields.</div>
+
+          <button id="submit" class="submit" type="submit">Sign In</button>
+
+          <div class="foot">
+            <span id="foot-text">New here? </span>
+            <span class="link" id="foot-link">Create an account</span>.
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+		<script>
+			const session = localStorage.getItem('sg_token');
+if (session) {
+  const role = (localStorage.getItem('sg_role') || '').toLowerCase();
+  if (role === 'admin') window.location.href = "../admin/index.html";
+  else window.location.href = "../app/dashboard/index.html";
+}
+
+			(function () {
+			// ---- CONFIG ----
+			// If your API lives elsewhere, set the full origin, e.g. "https://api.yourdomain.com"
+			const API_BASE = "https://shadowgatebackend-production.up.railway.app/api";
+
+			// Elements
+			const tabLogin = document.getElementById('tab-login');
+			const tabRegister = document.getElementById('tab-register');
+			const regFields = document.getElementById('reg-fields');
+			const note = document.getElementById('note');
+			const submit = document.getElementById('submit');
+			const footText = document.getElementById('foot-text');
+			const footLink = document.getElementById('foot-link');
+			const form = document.getElementById('form');
+			const err = document.getElementById('err');
+			const pw = document.getElementById('pw');
+			const user = document.getElementById('user');
+			const ingame = document.getElementById('ingame');
+			const company = document.getElementById('company');
+			const fio = document.getElementById('fio');
+			const togglePw = document.getElementById('togglePw');
+			const remember = document.getElementById('remember');
+
+			// Restore remembered username (never password)
+			const savedUser = localStorage.getItem('sg_user');
+			if (savedUser) user.value = savedUser;
+
+			// Mode toggle
+			let mode = 'login';
+			function setMode(next) {
+			mode = next;
+			const isReg = mode === 'register';
+
+			tabLogin.classList.toggle('active', !isReg);
+			tabRegister.classList.toggle('active', isReg);
+
+			regFields.style.display = isReg ? '' : 'none';
+			note.style.display = isReg ? '' : 'none';
+
+			submit.textContent = isReg ? 'Create Account' : 'Sign In';
+			footText.textContent = isReg ? 'Already have an account? ' : 'New here? ';
+			footLink.textContent = isReg ? 'Log in' : 'Create an account';
+
+			pw.placeholder = isReg ? 'min 8 chars' : '••••••••';
+			pw.setAttribute('autocomplete', isReg ? 'new-password' : 'current-password');
+			err.classList.remove('show');
+			err.textContent = 'Please fill the required fields.';
+		}
+
+			tabLogin.addEventListener('click', () => setMode('login'));
+			tabRegister.addEventListener('click', () => setMode('register'));
+			footLink.addEventListener('click', () => setMode(mode === 'login' ? 'register' : 'login'));
+
+			togglePw.addEventListener('click', () => {
+			const isText = pw.type === 'text';
+			pw.type = isText ? 'password' : 'text';
+			togglePw.textContent = isText ? 'Show' : 'Hide';
+		});
+
+			async function apiPost(path, body) {
+			const res = await fetch(`${API_BASE}${path}`, {
+			method: 'POST',
+			headers: {'Content-Type': 'application/json'},
+			body: JSON.stringify(body),
+			credentials: 'include' // allows cookie-based auth if backend sets HttpOnly cookies
+		});
+			let data = null;
+			try {data = await res.json();} catch { /* ignore non-JSON */}
+			if (!res.ok) {
+			const msg = (data && (data.detail || data.error)) || `Request failed (${res.status})`;
+			throw new Error(msg);
+		}
+			return data || {};
+		}
+
+			form.addEventListener('submit', async (e) => {
+			e.preventDefault();
+			err.classList.remove('show');
+			err.textContent = 'Please fill the required fields.';
+
+			// Basic client-side checks
+			if (!user.value.trim()) {
+			err.classList.add('show'); return;
+		}
+			if (mode === 'login') {
+			if (pw.value.length < 6) {err.classList.add('show'); return;}
+		} else {
+			// Register: require username + password ≥ 8 + in-game username
+			if (pw.value.length < 8 || !ingame.value.trim()) {err.classList.add('show'); return;}
+		}
+
+			// Remember username if requested
+			if (remember.checked) localStorage.setItem('sg_user', user.value);
+
+			try {
+			if (mode === 'login') {
+			const data = await apiPost('/login', {
+			username: user.value.trim(),
+			password: pw.value
+		});
+
+			// If backend returns a token, store it for API calls from other pages
+			if (data.token) localStorage.setItem('sg_token', data.token);
+			if (data.role) localStorage.setItem('sg_role', data.role);
+
+			// Redirect by role if provided
+			const role = (data.role || '').toLowerCase();
+			if (role === 'admin') {
+			window.location.href = "../admin/index.html";
+		} else {
+			window.location.href = "../app/dashboard/index.html";
+		}
+			return;
+		}
+
+			// Register
+			const payload = {
+			username: user.value.trim(),
+			password: pw.value,
+			ingame_username: ingame.value.trim(),
+			company_code: company.value.trim() || null,
+			fio_apikey: fio.value.trim() || null
+		};
+
+			const data = await apiPost('/register', payload);
+
+			// Optional auto-login after register if backend returns token
+			if (data.token) localStorage.setItem('sg_token', data.token);
+			if (data.role) localStorage.setItem('sg_role', data.role);
+
+			window.location.href = "../app/dashboard/index.html";
+		} catch (e2) {
+			err.textContent = e2.message || 'Something went wrong.';
+			err.classList.add('show');
+		}
+		});
+
+			// init
+			setMode('login');
+		})();
+	</script>
+
+</body>
+</html>
