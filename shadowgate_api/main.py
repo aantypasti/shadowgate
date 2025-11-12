@@ -9,12 +9,20 @@ from shadowgate_api.routers import users, admin
 app = FastAPI(title="Shadowgate API")
 
 # --- CORS: allow browser calls from any site (dev-friendly). Tighten later. ---
+from fastapi.middleware.cors import CORSMiddleware
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],      # e.g. ["https://your-frontend.site"] once deployed
-    allow_methods=["*"],      # GET, POST, OPTIONS, etc.
-    allow_headers=["*"],      # Content-Type, Authorization, etc.
-    allow_credentials=False,  # keep False when using "*"
+    allow_origins=[
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "http://localhost",
+        "http://127.0.0.1",
+        "*"  # loosened for now so you can test; tighten later if you want
+    ],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # --- DB init on boot ---
