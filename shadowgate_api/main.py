@@ -1,63 +1,93 @@
 # shadowgate_api/main.py
 from pathlib import Path
+import re
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from shadowgate_api.db import Base, engine
 from shadowgate_api.routers import users, admin
-# Uncomment when these routers are ready and deployed
-# from shadowgate_api.routers import loans, trades
 from shadowgate_api.routers import loan_eligibility as elig
-from fastapi import FastAPI
-app = FastAPI(title="Shadowgate API")
+# Enable when those endpoints are ready:
+# from shadowgate_api.routers import loans, trades
 
+app = FastAPI(title="Shadowgate API")
 
 MODELS_SQL = Path(__file__).with_name("models.sql")
 
-# CORS (loose for dev; tighten to your domain later)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
-def _apply_models_sql():
-    """Execute models.sql one statement at a time (Postgres-safe)."""
-    if not MODELS_SQL.exists():
-        print("[db] models.sql not found; skipping")
-        return
+def _split_sql_keep_dollar_blocks(sql: str) -> list[str]:
+    """
+    Split on semicolons that terminate statements, but DO NOT split inside
+    Postgres $$...$$ dollar-quoted blocks.
+    Also strips single-line comments starting with --.
+    """
+    # strip single-line comments (safe for DDL)
+    sql = re.sub(r"--.*?$", "", sql, flags=re.MULTILINE)
 
-    raw = MODELS_SQL.read_text(encoding="utf-8")
-    # naive splitter is fine because the file only has simple CREATE/INDEX statements
-    statements = [s.strip() for s in raw.split(";") if s.strip()]
-    if not statements:
-        print("[db] models.sql empty; skipping")
-        return
+    parts = []
+    buf = []
+    in_dollar = False
+    i = 0
+    while i < len(sql):
+        # toggle on $$ boundaries
+        if sql.startswith("$$", i):
+            in_dollar = not in_dollar
+            buf.append("$$")
+            i += 2
+            continue
+        ch = sql[i]
+        if ch == ";" and not in_dollar:
+            s = "".join(buf).strip()
+            if s:
+                parts.append(s)
+            buf = []
+        else:
+            buf.append(ch)
+        i += 1
+    tail = "".join(buf).strip()
+    if tail:
+        parts.append(tail)
+    return parts
 
-    with engine.begin() as conn:
-        for stmt in statements:
-            conn.exec_driver_sql(stmt)
-    print(f"[db] models.sql applied ({len(statements)} statements)")
 
 @app.on_event("startup")
-def init_db_on_startup():
-    # 1) Apply raw DDL
-    _apply_models_sql()
-    # 2) Create any ORM tables (if you add SQLAlchemy models later)
-    Base.metadata.create_all(bind=engine)
-    print("[db] ORM models created")
+def init_db_on_startup() -> None:
+    """
+    Apply models.sql (if present) as raw SQL statements.
+    Otherwise create tables from SQLAlchemy metadata.
+    """
+    try:
+        if MODELS_SQL.exists():
+            raw = MODELS_SQL.read_text(encoding="utf-8")
+            stmts = _split_sql_keep_dollar_blocks(raw)
+            if not stmts:
+                print("[db] models.sql is empty; skipping")
+            else:
+                with engine.begin() as conn:
+                    for s in stmts:
+                        # VERY IMPORTANT: pass a plain string, no params/compiled objects
+                        conn.exec_driver_sql(s)
+                print("[db] models.sql applied")
+        else:
+            # Fallback: create tables from models
+            with engine.begin() as conn:
+                Base.metadata.create_all(bind=conn)
+            print("[db] metadata.create_all applied (models.sql not found)")
+    except SQLAlchemyError as e:
+        # Log and re-raise to fail fast in Railway
+        print(f"[db] ERROR applying schema: {e}")
+        raise
 
+
+# --- Health check ---
 @app.get("/")
 def root():
     return {"message": "Shadowgate API running"}
 
-# Routers
-app.include_router(users.router)
-app.include_router(admin.router)
-app.include_router(elig.router)
+# --- Routers ---
+app.include_router(users.router)   # /api/users...
+app.include_router(admin.router)   # /api/admin...
+app.include_router(elig.router)    # /api/eligibility...
 # app.include_router(loans.router)
 # app.include_router(trades.router)
