@@ -7,6 +7,7 @@ from shadowgate_api.routers import users, admin
 from shadowgate_api.routers import users, admin, loans, trades
 from shadowgate_api.routers import loan_eligibility as elig
 
+
 app = FastAPI(title="Shadowgate API")
 
 # --- CORS: allow browser calls from any site (dev-friendly). Tighten later. ---
