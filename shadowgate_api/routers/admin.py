@@ -1,63 +1,91 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
-from jose import JWTError, jwt
-from pydantic import BaseModel, ConfigDict
-from sqlalchemy.orm import Session
-
 from shadowgate_api.db import get_db
-from shadowgate_api.routers.users import User, SECRET_KEY, ALGORITHM
+from shadowgate_api.routers.users import User  # reuse same ORM model
+from shadowgate_api.auth_simple import hash_password
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
-def _current_admin(token: str, db: Session):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
-        role = payload.get("role")
-        if not username or role != "admin":
-            raise HTTPException(status_code=403, detail="Admin privileges required")
-        admin_user = db.query(User).filter(User.username == username).first()
-        if not admin_user:
-            raise HTTPException(status_code=401, detail="User not found")
-        return admin_user
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
+# --- Schemas ---
 class UserOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
     id: int
     username: str
+    role: str
     ingame_username: str | None = None
     company_code: str | None = None
-    role: str
-    created_at: str | None = None
+    fio_apikey: str | None = None
+    bases: int | None = None
 
-class RoleUpdate(BaseModel):
-    role: str
+    class Config:
+        orm_mode = True
+
+class UserUpdateIn(BaseModel):
+    username: str
+    password: str | None = None
+    role: str | None = None
+    ingame_username: str | None = None
+    company_code: str | None = None
+    fio_apikey: str | None = None
+    bases: int | None = None
+
+# --- Helpers ---
+def _get_user(db: Session, user_id: int):
+    return db.query(User).filter(User.id == user_id).first()
+
+# --- Endpoints ---
 
 @router.get("/users", response_model=List[UserOut])
-def list_users(token: str, db: Session = Depends(get_db)):
-    _current_admin(token, db)
+def list_users(db: Session = Depends(get_db)):
+    """Return all users in the system."""
     return db.query(User).all()
 
-@router.patch("/users/{user_id}/role", response_model=UserOut)
-def update_user_role(user_id: int, body: RoleUpdate, token: str, db: Session = Depends(get_db)):
-    _current_admin(token, db)
-    user = db.query(User).filter(User.id == user_id).first()
+
+@router.get("/users/{user_id}", response_model=UserOut)
+def get_user(user_id: int, db: Session = Depends(get_db)):
+    """Return a single user by ID."""
+    user = _get_user(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    user.role = body.role
+    return user
+
+
+@router.put("/users/{user_id}", response_model=UserOut)
+def update_user(user_id: int, data: UserUpdateIn, db: Session = Depends(get_db)):
+    """Update a user's fields (including password if given)."""
+    user = _get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if data.username:
+        user.username = data.username
+    if data.role:
+        user.role = data.role
+    if data.ingame_username:
+        user.ingame_username = data.ingame_username
+    if data.company_code:
+        user.company_code = data.company_code
+    if data.fio_apikey:
+        user.fio_apikey = data.fio_apikey
+    if data.bases is not None:
+        user.bases = data.bases
+    if data.password:
+        user.password_hash = hash_password(data.password)
+
     db.commit()
     db.refresh(user)
     return user
 
+
 @router.delete("/users/{user_id}")
-def delete_user(user_id: int, token: str, db: Session = Depends(get_db)):
-    _current_admin(token, db)
-    user = db.query(User).filter(User.id == user_id).first()
+def delete_user(user_id: int, db: Session = Depends(get_db)):
+    """Delete a user by ID."""
+    user = _get_user(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
     db.delete(user)
     db.commit()
-    return {"detail": f"User '{user.username}' deleted"}
+    return {"message": f"User {user.username} deleted successfully."}
