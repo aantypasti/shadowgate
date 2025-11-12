@@ -7,11 +7,13 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 
 load_dotenv()
 
+
 def _url_with_params(url: str, **extra) -> str:
     p = urlparse(url)
     q = dict(parse_qsl(p.query))
     q.update({k: str(v) for k, v in extra.items() if v is not None})
     return urlunparse(p._replace(query=urlencode(q)))
+
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
@@ -25,12 +27,17 @@ if not DATABASE_URL:
     else:
         raise RuntimeError("DATABASE_URL not set")
 
-# --- FIXED: only require SSL for Railway's PUBLIC PROXY hosts ---
+
+# --- Always enforce SSL unless running locally ---
 p = urlparse(DATABASE_URL)
 host = (p.hostname or "").lower()
 
-# Public proxy looks like *.proxy.rlwy.net on a high port
-needs_ssl = host.endswith(".proxy.rlwy.net") or host == "proxy.rlwy.net"
+# Require SSL for anything not localhost/internal
+needs_ssl = (
+    not host.startswith("localhost")
+    and not host.startswith("127.")
+    and not host.endswith(".internal")
+)
 
 DATABASE_URL = _url_with_params(
     DATABASE_URL,
@@ -38,14 +45,17 @@ DATABASE_URL = _url_with_params(
     connect_timeout=5,
 )
 
+# --- Create SQLAlchemy engine ---
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
     pool_recycle=1800,
     future=True,
 )
+
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 Base = declarative_base()
+
 
 def get_db():
     db = SessionLocal()
